@@ -1,0 +1,10 @@
+data
+params
+__pycache__
+exps
+results.json
+CLIP
+.idea
+*.pkl
+tmp
+pretrained
