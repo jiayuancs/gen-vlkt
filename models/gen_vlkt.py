@@ -153,6 +153,10 @@ class GEN_VLKT(nn.Module):
             outputs_inter_hs = inter_hs.clone()
             outputs_hoi_class = self.hoi_class_embedding(inter_hs)
 
+        # pred_hoi_logits: 人物对的交互分数(HICO-DET：600个类别)
+        # pred_obj_logits：物体框的类别分数(共81个类别，最后一个类别是nothing)
+        # pred_sub_boxes：人框坐标
+        # pred_obj_boxes：物框坐标
         out = {'pred_hoi_logits': outputs_hoi_class[-1], 'pred_obj_logits': outputs_obj_class[-1],
                'pred_sub_boxes': outputs_sub_coord[-1], 'pred_obj_boxes': outputs_obj_coord[-1]}
 
@@ -433,7 +437,7 @@ class PostProcessHOITriplet(nn.Module):
 
         hoi_scores = out_hoi_logits.sigmoid()
         obj_scores = out_obj_logits.sigmoid()
-        obj_labels = F.softmax(out_obj_logits, -1)[..., :-1].max(-1)[1]
+        obj_labels = F.softmax(out_obj_logits, -1)[..., :-1].max(-1)[1]   # 剔除掉第81个类别nothing
 
         img_h, img_w = target_sizes.unbind(1)
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1).to(hoi_scores.device)
@@ -456,6 +460,14 @@ class PostProcessHOITriplet(nn.Module):
             results[-1].update({'hoi_scores': hs.to('cpu'), 'obj_scores': os.to('cpu'),
                                 'sub_ids': ids[:ids.shape[0] // 2], 'obj_ids': ids[ids.shape[0] // 2:]})
 
+        # results 是一个 python list，其每个元素都是 dict
+        # 用 N 表示模型输出的人物对数量，则
+        # - labels：[2N], 表示边界框类别, labels[:N] 全为0，表示N个人物对中的人框类别，labels[N：] 表示N个人物对中的物框类别
+        # - boxes：[2N, 4], 边界框坐标, 格式为[x1, y1, x2, y2], 已经变换到图像尺寸，同理
+        # - hoi_scores: [N, 600], N 个人物对的交互分数
+        # - obj_scores: [N, 81], N 个人物对中的物体类别分数，最后一个类别是nothing
+        # - sub_ids: [N], N 个人物对中的人框和类别在 labels 和 boxes 中的索引
+        # - obj_ids: [N], N 个人物对中的物框和类别在 labels 和 boxes 中的索引
         return results
 
 

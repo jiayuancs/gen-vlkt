@@ -93,6 +93,15 @@ def evaluate_hoi(dataset_file, model, postprocessors, data_loader,
         # print(targets)
         outputs = model(samples, is_training=False)
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+
+        # results 是一个 python list，其每个元素都是 dict
+        # 用 N 表示模型输出的人物对数量，则
+        # - labels：[2N], 表示边界框类别, labels[:N] 全为0，表示N个人物对中的人框类别，labels[N：] 表示N个人物对中的物框类别
+        # - boxes：[2N, 4], 边界框坐标, 格式为[x1, y1, x2, y2], 已经变换到图像尺寸，同理
+        # - hoi_scores: [N, 600], N 个人物对的交互分数
+        # - obj_scores: [N, 81], N 个人物对中的物体类别分数，最后一个类别是nothing
+        # - sub_ids: [N], N 个人物对中的人框和类别在 labels 和 boxes 中的索引
+        # - obj_ids: [N], N 个人物对中的物框和类别在 labels 和 boxes 中的索引
         results = postprocessors['hoi'](outputs, orig_target_sizes)
 
         preds.extend(list(itertools.chain.from_iterable(utils.all_gather(results))))
