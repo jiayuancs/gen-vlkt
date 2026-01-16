@@ -9,9 +9,10 @@ from .hico_text_label import hico_text_label
 from util.topk import top_k
 
 class HICOEvaluator():
-    def __init__(self, preds, gts, rare_triplets, non_rare_triplets, correct_mat, args):
+    def __init__(self, preds, gts, rare_triplets, non_rare_triplets, correct_mat, args, ood_flag=False):
         self.overlap_iou = 0.5
         self.max_hois = 100
+        self.ood_flag = ood_flag
 
         self.zero_shot_type = args.zero_shot_type
 
@@ -88,9 +89,15 @@ class HICOEvaluator():
             img_gts = {k: v.to('cpu').numpy() for k, v in img_gts.items() if k != 'id' and k != 'filename'}
             bbox_anns = [{'bbox': list(bbox), 'category_id': label} for bbox, label in
                          zip(img_gts['boxes'], img_gts['labels'])]
-            hoi_anns = [{'subject_id': hoi[0], 'object_id': hoi[1],
-                         'category_id': self.hico_triplet_labels.index((hoi[2], bbox_anns[hoi[1]]['category_id']))}
-                        for hoi in img_gts['hois']]
+            if not ood_flag:
+                hoi_anns = [{'subject_id': hoi[0], 'object_id': hoi[1],
+                            'category_id': self.hico_triplet_labels.index((hoi[2], bbox_anns[hoi[1]]['category_id']))}  # 将 verb 类别转为 HOI 类别
+                            for hoi in img_gts['hois']]
+            else:
+                # OOD 数据集不关心具体交互类别
+                hoi_anns = [{'subject_id': hoi[0], 'object_id': hoi[1],
+                            'category_id': -1}
+                            for hoi in img_gts['hois']]
             self.gts.append({
                 'filename': filename,
                 'annotations': bbox_anns,
@@ -104,13 +111,18 @@ class HICOEvaluator():
 
                 self.sum_gts[triplet] += 1
 
-        with open(args.json_file, 'w') as f:
+        save_file_path = "results_ood.json" if ood_flag else args.json_file
+        with open(save_file_path, 'w') as f:
             f.write(json.dumps(str({'preds': self.preds, 'gts': self.gts})))
+            print(f"results saved: {save_file_path}")
 
         print(len(self.preds))
         print(len(self.gts))
 
     def evaluate(self):
+        if self.ood_flag:
+            print("skip ood dataset")
+            return
         for img_preds, img_gts in zip(self.preds, self.gts):
             pred_bboxes = img_preds['predictions']
             if len(pred_bboxes) == 0: continue
@@ -267,7 +279,7 @@ class HICOEvaluator():
         iou_mat[iou_mat < self.overlap_iou] = 0
 
         match_pairs = np.nonzero(iou_mat)
-        match_pairs_dict = {}
+        match_pairs_dict = {}    # match_pairs_dict[i]：第i个预测与第match_pairs_dict[i]个ground-truth匹配
         match_pair_overlaps = {}
         if iou_mat.max() > 0:
             for i, pred_id in enumerate(match_pairs[1]):

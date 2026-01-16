@@ -16,6 +16,7 @@ from engine import train_one_epoch, evaluate_hoi
 from models import build_model
 import os
 
+from datasets.hico_ood import build_ood_dataset
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
@@ -259,13 +260,16 @@ def main(args):
 
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
+    dataset_ood = build_ood_dataset(image_set='val', args=args)
 
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
         sampler_val = DistributedSampler(dataset_val, shuffle=False)
+        sampler_ood = DistributedSampler(dataset_ood, shuffle=False)
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+        sampler_ood = torch.utils.data.SequentialSampler(dataset_ood)
 
     batch_sampler_train = torch.utils.data.BatchSampler(
         sampler_train, args.batch_size, drop_last=True)
@@ -273,6 +277,8 @@ def main(args):
     data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers)
     data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
+                                 drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
+    data_loader_ood = DataLoader(dataset_ood, args.batch_size, sampler=sampler_ood,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
     if args.frozen_weights is not None:
@@ -300,6 +306,8 @@ def main(args):
 
     if args.eval:
         test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val,
+                                  args.subject_category_id, device, args)
+        test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_ood,
                                   args.subject_category_id, device, args)
         return
 

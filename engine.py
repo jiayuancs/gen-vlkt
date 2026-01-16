@@ -109,6 +109,8 @@ def evaluate_hoi(dataset_file, model, postprocessors, data_loader,
         gts.extend(list(itertools.chain.from_iterable(utils.all_gather(copy.deepcopy(targets)))))
 
         # counter += 1
+        # if counter > 100:
+        #     break
 
 
     # gather the stats from all processes
@@ -121,7 +123,8 @@ def evaluate_hoi(dataset_file, model, postprocessors, data_loader,
 
     if dataset_file == 'hico':
         evaluator = HICOEvaluator(preds, gts, data_loader.dataset.rare_triplets,
-                                  data_loader.dataset.non_rare_triplets, data_loader.dataset.correct_mat, args=args)
+                                  data_loader.dataset.non_rare_triplets, data_loader.dataset.correct_mat, args=args,
+                                  ood_flag=getattr(data_loader.dataset, 'ood_dataset_flag', False))
     elif dataset_file == 'vcoco':
         evaluator = VCOCOEvaluator(preds, gts, data_loader.dataset.correct_mat, use_nms_filter=args.use_nms_filter)
 

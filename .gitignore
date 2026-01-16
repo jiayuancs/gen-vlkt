@@ -3,6 +3,7 @@ params
 __pycache__
 exps
 results.json
+results_ood.json
 CLIP
 .idea
 *.pkl

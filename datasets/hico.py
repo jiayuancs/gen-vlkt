@@ -182,7 +182,16 @@ class HICODetection(torch.utils.data.Dataset):
                 hois.append((hoi['subject_id'], hoi['object_id'], self._valid_verb_ids.index(hoi['category_id'])))
             target['hois'] = torch.as_tensor(hois, dtype=torch.int64)
 
-
+        # 对于**评测**而言，输出的数据结构如下：
+        # img: [3, H', W']: 经过变换后的 tensor
+        # target：
+        # - orig_size: [2], 图像原始大小, [H, W]
+        # - size: [2], 图像原始大小, [H, W]
+        # - filename: 图像文件名
+        # - boxes: 图像中的人和物的边界框坐标, 格式为[x1, y1, x2, y2], 原始图像尺寸
+        # - labels: 边界框对应的类别编号0-79
+        # - id: 数据集中的编号，即当前方法的入参 idx
+        # - hois: [N, 3], 图像中存在的 N 个人物对，每个人物对表示为三元组(人框下标，物框下标，verb类别编号)
         return img, target
 
     def set_rare_hois(self, anno_file):
