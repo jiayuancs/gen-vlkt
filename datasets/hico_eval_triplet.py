@@ -7,6 +7,7 @@ from collections import defaultdict
 import os, cv2, json
 from .hico_text_label import hico_text_label
 from util.topk import top_k
+import pickle
 
 class HICOEvaluator():
     def __init__(self, preds, gts, rare_triplets, non_rare_triplets, correct_mat, args, ood_flag=False):
@@ -38,6 +39,7 @@ class HICOEvaluator():
         self.gt_triplets = []
 
         self.preds = []
+        self.ood_preds = []
         self.hico_triplet_labels = list(hico_text_label.keys())
         self.hoi_obj_list = []
         for hoi_pair in self.hico_triplet_labels:
@@ -48,6 +50,21 @@ class HICOEvaluator():
             bboxes = [{'bbox': list(bbox)} for bbox in img_preds['boxes']]
             obj_scores = img_preds['obj_scores'] *  img_preds['obj_scores']
             hoi_scores = img_preds['hoi_scores'] + obj_scores[:, self.hoi_obj_list]
+
+            # OOD start
+            hoi_scores_for_ood = hoi_scores.copy()
+            sub_ids_for_ood = img_preds['sub_ids'].copy()
+            obj_ids_for_ood = img_preds['obj_ids'].copy()
+            obj_labels_for_ood = img_preds['labels'].copy()
+            ood_prediction = {
+                'filename': gts[index]['filename'],
+                'subject_id': sub_ids_for_ood,
+                'object_id': obj_ids_for_ood,
+                'object_class': obj_labels_for_ood,
+                'score': hoi_scores_for_ood
+            }
+            self.ood_preds.append(ood_prediction)
+            # OOD end
 
             hoi_labels = np.tile(np.arange(hoi_scores.shape[1]), (hoi_scores.shape[0], 1))
             subject_ids = np.tile(img_preds['sub_ids'], (hoi_scores.shape[1], 1)).T
@@ -112,8 +129,10 @@ class HICOEvaluator():
                 self.sum_gts[triplet] += 1
 
         save_file_path = "results_ood.json" if ood_flag else args.json_file
-        with open(save_file_path, 'w') as f:
-            f.write(json.dumps(str({'preds': self.preds, 'gts': self.gts})))
+        save_file_path = save_file_path.replace('json', 'pkl')
+        with open(save_file_path, 'wb') as f:
+            save_data = {'preds': self.preds, 'gts': self.gts, 'ood_preds': self.ood_preds}
+            pickle.dump(save_data, f)
             print(f"results saved: {save_file_path}")
 
         print(len(self.preds))

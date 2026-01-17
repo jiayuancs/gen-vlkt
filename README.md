@@ -1,6 +1,6 @@
 # gen-vlkt eval-ood 分支
 
-评估指令：
+运行如下指令生成 `results.pkl` 和 `results_ood.pkl` 文件：
 
 ```shell
 python main.py \
@@ -18,5 +18,8 @@ python main.py \
         --use_nms_filter
 ```
 
+运行 `eval_ood.py` 评估 `results.pkl` 和 `results_ood.pkl` 文件，输出 OOD 检测性能：
 
-
+```shell
+python eval_ood.py
+```
